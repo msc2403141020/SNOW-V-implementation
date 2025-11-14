@@ -1,0 +1,84 @@
+#include <stdio.h>
+#include <stdint.h>
+
+typedef uint16_t u16;
+
+// --- SNOW-V LFSR-A parameters ---
+#define ALPHA 0x990f   // Reduction polynomial for mul_x
+#define ALPHA_INV 0xcc87 // Reduction polynomial for mul_x_inv
+
+u16 A[16]; // LFSR-A state: A[0] = a0 ... A[15] = a15
+
+// Multiply by x (alpha)
+u16 mul_x(u16 v, u16 c) {
+    if (v & 0x8000)       // Check MSB
+        return (v << 1) ^ c;
+    else
+        return v << 1;
+}
+
+// Multiply by x^-1 (alpha^-1)
+u16 mul_x_inv(u16 v, u16 d) {
+    if (v & 0x0001)       // Check LSB
+        return (v >> 1) ^ d;
+    else
+        return v >> 1;
+}
+
+// LFSR-A update (tmpa = alpha*a0 + a1 + alpha^-1*a8)
+u16 lfsrA_step(void) {
+    u16 tmpa = mul_x(A[0], ALPHA) ^ A[1] ^ mul_x_inv(A[8], ALPHA_INV);
+
+    // Shift left
+    for (int i = 0; i < 15; i++)
+        A[i] = A[i + 1];
+
+    A[15] = tmpa; // Insert new word
+    return tmpa;
+}
+
+// Print LFSR-A state
+void print_state(void) {
+    printf("LFSR-A State (a15 ... a0):\n");
+    for (int i = 15; i >= 0; i--) {
+        printf("%04x%s", A[i], (i % 4 == 0) ? "\n" : " | ");
+    }
+}
+
+int main(void) {
+    unsigned int w;
+
+    printf("--- SNOW-V LFSR-A Only Simulation ---\n\n");
+
+    printf("Enter 8 Key words (k7 ... k0) in hex (16-bit each):\n");
+    for (int i = 15; i >= 8; i--) {  // Fill A[15]..A[8] with Key
+        if (scanf("%x", &w) != 1) {
+            printf("Invalid input\n");
+            return 1;
+        }
+        A[i] = (u16) w;
+    }
+
+    printf("Enter 8 IV words (iv7 ... iv0) in hex (16-bit each):\n");
+    for (int i = 7; i >= 0; i--) {  // Fill A[7]..A[0] with IV
+        if (scanf("%x", &w) != 1) {
+            printf("Invalid input\n");
+            return 1;
+        }
+        A[i] = (u16) w;
+    }
+
+    printf("\nInitial LFSR-A State:\n");
+    print_state();
+
+    printf("\nGenerating 16 new words (feedback a16 ... a31):\n");
+    for (int t = 0; t < 16; t++) {
+        u16 out = lfsrA_step();
+        printf("%04x%s", out, ((t + 1) % 4 == 0) ? "\n" : " | ");
+    }
+
+    printf("\nFinal LFSR-A State:\n");
+    print_state();
+
+    return 0;
+}
