@@ -1,0 +1,109 @@
+#include <stdio.h>
+#include <stdint.h>
+
+typedef uint16_t u16;
+
+// --- SNOW-V LFSR-B reduction polynomials ---
+#define B_POLY     0xC963   // c  = β   (x polynomial)
+#define B_POLY_INV 0xE4B1   // d  = β⁻¹ (inverse polynomial)
+
+// LFSR-B state: B[0] = b0 ... B[15] = b15
+u16 B[16];
+
+// -------------------------------------------------------------------
+// Multiply by x  -> v * x  mod g(x)
+// -------------------------------------------------------------------
+u16 mul_x(u16 v, u16 c)
+{
+    if (v & 0x8000)      // MSB = 1?
+        return (v << 1) ^ c;
+    else
+        return (v << 1);
+}
+
+// -------------------------------------------------------------------
+// Multiply by x⁻¹  -> v / x mod g(x)
+// -------------------------------------------------------------------
+u16 mul_x_inv(u16 v, u16 d)
+{
+    if (v & 0x0001)      // LSB = 1?
+        return (v >> 1) ^ d;
+    else
+        return (v >> 1);
+}
+
+// -------------------------------------------------------------------
+// LFSR-B ONE STEP:
+//    b(t+16) = β*b0  ⊕  b3  ⊕  β⁻¹*b8
+// -------------------------------------------------------------------
+u16 lfsrB_step(void)
+{
+    u16 b0 = B[0];
+    u16 b3 = B[3];
+    u16 b8 = B[8];
+
+    u16 tmpb =
+          mul_x(b0, B_POLY)
+        ^ b3
+        ^ mul_x_inv(b8, B_POLY_INV);
+
+    // Shift left
+    for (int i = 0; i < 15; i++)
+        B[i] = B[i + 1];
+
+    B[15] = tmpb;
+
+    return tmpb;
+}
+
+// -------------------------------------------------------------------
+// Print State B[15] ... B[0]
+// -------------------------------------------------------------------
+void print_state_B(void)
+{
+    printf("LFSR-B State (b15 ... b0):\n");
+    for (int i = 15; i >= 0; i--)
+        printf("%04x%s", B[i], (i % 4 == 0) ? "\n" : " | ");
+}
+
+// -------------------------------------------------------------------
+// MAIN PROGRAM
+// -------------------------------------------------------------------
+int main(void)
+{
+    unsigned int w;
+
+    printf("--- SNOW-V LFSR-B Only Simulation ---\n\n");
+
+    printf("Enter 8 Key words (k15 ... k8) in hex (16-bit each):\n");
+
+    // Fill B[15] ... B[8]
+    for (int i = 15; i >= 8; i--)
+    {
+        if (scanf("%x", &w) != 1) {
+            printf("Invalid input.\n");
+            return 1;
+        }
+        B[i] = (u16) w;
+    }
+
+    // Set B[7] ... B[0] = 0
+    printf("\nSetting lower half (b7 ... b0) = 0\n");
+    for (int i = 0; i <= 7; i++)
+        B[i] = 0x0000;
+
+    printf("\nInitial LFSR-B State:\n");
+    print_state_B();
+
+    printf("\nGenerating 16 new words (b16 ... b31):\n");
+    for (int t = 0; t < 16; t++)
+    {
+        u16 out = lfsrB_step();
+        printf("%04x%s", out, ((t + 1) % 4 == 0) ? "\n" : " | ");
+    }
+
+    printf("\nFinal LFSR-B State:\n");
+    print_state_B();
+
+    return 0;
+}
