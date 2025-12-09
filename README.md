@@ -1,7 +1,7 @@
 # SNOW-V LFSR Components (Research Implementation)
 
 This repository contains reference C implementations of the **LFSR-A** and **LFSR-B** components of the SNOW-V stream cipher.  
-The code is written for research and teaching purposes as part of MSc coursework (MSC2403141020).
+The code is written for research purpose as part of MSc Research Project.
 
 ---
 
