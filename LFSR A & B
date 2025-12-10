@@ -1,0 +1,163 @@
+#include <stdio.h>
+#include <stdint.h>
+
+typedef uint16_t u16;
+
+// ===============================
+//   SNOW-V POLYNOMIALS
+// ===============================
+#define A_POLY      0x990F   // α reduction polynomial
+#define A_POLY_INV  0xCC87   // α^{-1} polynomial
+
+#define B_POLY      0xC963   // β reduction polynomial
+#define B_POLY_INV  0xE4B1   // β^{-1} polynomial
+
+// ===============================
+//   STATE ARRAYS
+// ===============================
+u16 A[16];   // LFSR-A: a0 ... a15
+u16 B[16];   // LFSR-B: b0 ... b15
+
+// ===============================
+//   MULTIPLICATION FUNCTIONS
+// ===============================
+
+// Multiply by x in F2^16
+u16 mul_x(u16 v, u16 poly)
+{
+    if (v & 0x8000)
+        return (v << 1) ^ poly;
+    else
+        return (v << 1);
+}
+
+// Multiply by x^-1 in F2^16
+u16 mul_x_inv(u16 v, u16 poly_inv)
+{
+    if (v & 0x0001)
+        return (v >> 1) ^ poly_inv;
+    else
+        return (v >> 1);
+}
+
+// ===============================
+//   ONE COMBINED STEP
+// ===============================
+//
+//  a(t+16) = b0 + α*a0 + a1 + α^{-1}*a8
+//  b(t+16) = a0 + β*b0 + b3 + β^{-1}*b8
+//
+// ===============================
+void lfsr_step(void)
+{
+    u16 a0 = A[0];
+    u16 a1 = A[1];
+    u16 a8 = A[8];
+
+    u16 b0 = B[0];
+    u16 b3 = B[3];
+    u16 b8 = B[8];
+
+    // --- Compute feedback values ---
+    u16 tmpA =
+          b0
+        ^ mul_x(a0, A_POLY)
+        ^ a1
+        ^ mul_x_inv(a8, A_POLY_INV);
+
+    u16 tmpB =
+          a0
+        ^ mul_x(b0, B_POLY)
+        ^ b3
+        ^ mul_x_inv(b8, B_POLY_INV);
+
+    // --- Shift left A ---
+    for (int i = 0; i < 15; i++)
+        A[i] = A[i + 1];
+    A[15] = tmpA;
+
+    // --- Shift left B ---
+    for (int i = 0; i < 15; i++)
+        B[i] = B[i + 1];
+    B[15] = tmpB;
+}
+
+// ===============================
+//   PRINT FUNCTIONS
+// ===============================
+void print_state_A(void)
+{
+    printf("LFSR-A State (a15 ... a0):\n");
+    for (int i = 15; i >= 0; i--)
+        printf("%04x%s", A[i], (i % 4 == 0) ? "\n" : " | ");
+}
+
+void print_state_B(void)
+{
+    printf("LFSR-B State (b15 ... b0):\n");
+    for (int i = 15; i >= 0; i--)
+        printf("%04x%s", B[i], (i % 4 == 0) ? "\n" : " | ");
+}
+
+// ===============================
+//   MAIN PROGRAM
+// ===============================
+int main(void)
+{
+    unsigned int w;
+
+    printf("--- SNOW-V Combined LFSR-A + LFSR-B Simulation ---\n\n");
+
+    // ------------------------------------------------------------
+    // Initialize LFSR-A
+    // ------------------------------------------------------------
+    printf("Enter 8 Key words (k7 ... k0) for LFSR-A:\n");
+    for (int i = 15; i >= 8; i--) {
+        if (scanf("%x", &w) != 1) return 1;
+        A[i] = (u16) w;
+    }
+
+    printf("Enter 8 IV words (iv7 ... iv0) for LFSR-A:\n");
+    for (int i = 7; i >= 0; i--) {
+        if (scanf("%x", &w) != 1) return 1;
+        A[i] = (u16) w;
+    }
+
+    // ------------------------------------------------------------
+    // Initialize LFSR-B
+    // ------------------------------------------------------------
+    printf("Enter 8 Key words (k15 ... k8) for LFSR-B:\n");
+    for (int i = 15; i >= 8; i--) {
+        if (scanf("%x", &w) != 1) return 1;
+        B[i] = (u16) w;
+    }
+
+    printf("Setting (b7 ... b0) = 0\n");
+    for (int i = 0; i <= 7; i++)
+        B[i] = 0;
+
+    // ------------------------------------------------------------
+    // Show initial state
+    // ------------------------------------------------------------
+    printf("\nInitial State:\n");
+    print_state_A();
+    print_state_B();
+
+    // ------------------------------------------------------------
+    // Generate 16 combined steps
+    // ------------------------------------------------------------
+    printf("\nGenerating 16 combined updates (a16..a31, b16..b31):\n");
+
+    for (int t = 0; t < 16; t++) {
+        lfsr_step();
+        printf("Step %2d: A15=%04x | B15=%04x\n", t+1, A[15], B[15]);
+    }
+
+    printf("\nFinal LFSR-A State:\n");
+    print_state_A();
+
+    printf("\nFinal LFSR-B State:\n");
+    print_state_B();
+
+    return 0;
+}
