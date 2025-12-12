@@ -225,105 +225,48 @@ int main(void)
 {
     u8 key[32];
     u8 iv[16];
-   // u16 A[16], B[16];   // LFSR word arrays
     unsigned int w;
 
     printf("--- SNOW-V Full Model Simulation ---\n\n");
 
-    // ------------------------------------------------------------
-    //                Input LFSR-A
-    // ------------------------------------------------------------
-    printf("Enter 8 Key words (k7 ... k0) for LFSR-A (16-bit hex each):\n");
-    for (int i = 15; i >= 8; i--) {
-        if (scanf("%x", &w) != 1) return 1;
-        A[i] = (u16) w;
-    }
+  // --- Take direct 32-byte key input (hex) ---
+printf("Enter 32 bytes of key in hex (64 hex chars):\n");
+for (int i = 0; i < 32; i++) {
+    scanf("%2x", &w);
+    key[i] = (u8)w;
+}
 
-    printf("Enter 8 IV words (iv7 ... iv0) for LFSR-A (16-bit hex each):\n");
-    for (int i = 7; i >= 0; i--) {
-        if (scanf("%x", &w) != 1) return 1;
-        A[i] = (u16) w;
-    }
-
-    // ------------------------------------------------------------
-    // Initialize LFSR-B
-    // ------------------------------------------------------------
-    printf("Enter 8 Key words (k15 ... k8) for LFSR-B (16-bit hex each):\n");
-    for (int i = 15; i >= 8; i--) {
-        if (scanf("%x", &w) != 1) return 1;
-        B[i] = (u16) w;
-    }
-
-    printf("Setting (b7 ... b0) = 0\n");
-    for (int i = 0; i <= 7; i++)
-        B[i] = 0;
-
-    // ------------ CONVERT LFSR-A+B → key[] AND iv[] -----------
-    /*
-      key expected by keyiv_setup:
-        key[0..15]  <- A[8..15] (k0 .. k7)  (each word -> 2 bytes little-endian)
-        key[16..31] <- B[8..15] (k8 .. k15)
-      iv expected by keyiv_setup:
-        iv[0..15]   <- A[0..7] (iv0 .. iv7)
-    */
-      /* key: first 16 bytes = A[8..15], next 16 bytes = B[8..15] */
-/*
-                 (we can use this also)
+// --- Take direct 16-byte IV input ---
+printf("Enter 16 bytes of IV in hex (32 hex chars):\n");
 for (int i = 0; i < 16; i++) {
-    key[2*i]     = (u8)(A[i]);        // low  byte
-    key[2*i + 1] = (u8)(A[i] >> 8);   // high byte
+    scanf("%2x", &w);
+    iv[i] = (u8)w;
 }
-for (int i = 0; i < 16; i++) {
-    key[32 - 32 + 2*i]     = (u8)(B[i]);
-    key[32 - 32 + 2*i + 1] = (u8)(B[i] >> 8);
-}
-
-// iv = A[7..0] only (16 bytes)
-for (int i = 0; i < 8; i++) {
-    iv[2*i]     = (u8)(A[i]);
-    iv[2*i + 1] = (u8)(A[i] >> 8);
-}
-*/
-for (int i = 0; i < 8; i++) {
-        u16 a = A[8 + i];               /* A[8]..A[15] */
-        key[2*i]     = (u8)(a & 0xFF);  /* low byte */
-        key[2*i + 1] = (u8)(a >> 8);    /* high byte */
-    }
-    for (int i = 0; i < 8; i++) {
-        u16 b = B[8 + i];               /* B[8]..B[15] */
-        key[16 + 2*i]     = (u8)(b & 0xFF);
-        key[16 + 2*i + 1] = (u8)(b >> 8);
-    }
-
-    /* iv: from A[0..7] */
-    for (int i = 0; i < 8; i++) {
-        u16 a = A[i];                   /* A[0]..A[7] */
-        iv[2*i]     = (u8)(a & 0xFF);
-        iv[2*i + 1] = (u8)(a >> 8);
-    }
-
     //
     // ----------------- PRINT LOADED INPUT -----------------
     //
-     printf("\n== Loaded LFSRs ==\n");
 
-    printf("LFSR-A (a15 ... a0):\n");
-    for (int i = 15; i >= 0; i--)
-        printf("%04x%s", A[i], (i%4==0?"\n":" | "));
+printf("\nKey (32 bytes):\n");
+for (int i = 0; i < 32; i++) {
 
-    printf("LFSR-B (b15 ... b0):\n");
-    for (int i = 15; i >= 0; i--)
-        printf("%04x%s", B[i], (i%4==0?"\n":" | "));
+    printf("%02x", key[i]);
 
- printf("\nkey (32 bytes):\n");
-    for (int i = 0; i < 32; i++) {
-        printf("%02x", key[i]);
-        if (i % 16 == 15) printf("\n"); else if (i % 2 == 1) printf(" ");
-    }
-    printf("iv (16 bytes):\n");
-    for (int i = 0; i < 16; i++) {
-        printf("%02x", iv[i]);
-        if (i % 8 == 7) printf("\n"); else if (i % 2 == 1) printf(" ");
+    if (i != 31) printf(" ");
+
+    // break line after 16 bytes (i = 15)
+    if (i == 15)
+        printf("\n");
+}
+printf("\n");
+
+printf("\niv (16 bytes):\n");
+for (int i = 0; i < 16; i++) {
+
+    printf("%02x", iv[i]);
+
+    if (i != 15) printf(" ");
+}
+printf("\n");
     }
     //
     // ------------------- INITIALIZATION ---------------------
